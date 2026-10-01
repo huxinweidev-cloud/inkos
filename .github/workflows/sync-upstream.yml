@@ -1,0 +1,54 @@
+name: Sync upstream
+on:
+  schedule:
+    - cron: '20 */8 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sync-upstream-master
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Require workflow-capable sync credential
+        env:
+          SYNC_UPSTREAM_TOKEN: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+        run: test -n "$SYNC_UPSTREAM_TOKEN"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+          token: ${{ secrets.SYNC_UPSTREAM_TOKEN }}
+      - name: Merge candidate without overwriting fork modifications
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add upstream https://github.com/Narcooo/inkos.git
+          git fetch upstream master
+          git merge upstream/master --no-edit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.9'
+      - name: Build and check Inkos
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm typecheck
+      - name: Test hosted changes when present
+        run: |
+          if test -f packages/core/src/__tests__/hosted-path-safety.test.ts; then
+            pnpm --filter @actalk/inkos-core test src/__tests__/hosted-path-safety.test.ts src/__tests__/chapter-import-source.test.ts src/__tests__/translation-runner.test.ts
+          fi
+          if test -f packages/studio/src/__tests__/hosted-authorization.test.ts; then
+            pnpm --filter @actalk/inkos-studio test src/__tests__/hosted-authorization.test.ts
+          fi
+          if test -f hosting/broker/package.json; then (cd hosting/broker && npm run check && npm test); fi
+          if test -f hosting/worker/package.json; then (cd hosting/worker && INKOS_SOURCE_ROOT="$GITHUB_WORKSPACE" npm test); fi
+      - name: Publish only tested merge (non-force push)
+        run: git push origin HEAD:master
