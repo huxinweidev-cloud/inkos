@@ -12,10 +12,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    env:
-      TMPDIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
+      - name: Configure portable test scratch
+        run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
