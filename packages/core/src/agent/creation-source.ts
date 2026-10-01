@@ -2,6 +2,7 @@ import {readFile} from 'node:fs/promises';
 import {basename,isAbsolute,join,relative,sep} from 'node:path';
 import {Type} from '@sinclair/typebox';
 import {safeChildPath} from '../utils/path-safety.js';
+import {hostedReadablePath} from '../utils/hosted-path-safety.js';
 import {ingestMaterial} from '../materials/ingest.js';
 import {readArtifactRevision} from '../harness/artifact-reader.js';
 import {loadWorkManifest} from '../harness/work-store.js';
@@ -50,7 +51,7 @@ export async function loadCreationSource(input:{
   }else{
     if(!input.sourcePath?.trim())throw Object.assign(new Error('Select a source artifact, file path, or author-supplied text.'),{code:'CREATION_SOURCE_REQUIRED'});
     if(isAbsolute(input.sourcePath))throw new Error('Creation sourcePath must be project-relative. Upload or ingest the file first.');
-    const path=safeChildPath(input.projectRoot,input.sourcePath),parts=relative(input.projectRoot,path).split(sep);
+    const path=await hostedReadablePath(input.projectRoot,safeChildPath(input.projectRoot,input.sourcePath)),parts=relative(input.projectRoot,path).split(sep);
     let reference:CreationArtifactReference|undefined;
     if(parts[0]==='works'&&parts[1]){
       const work=await loadWorkManifest(input.projectRoot,parts[1]);

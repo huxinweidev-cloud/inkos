@@ -1,4 +1,5 @@
 // Models
+export { hostedReadablePath, hostedExportPath, isHostedMode } from "./utils/hosted-path-safety.js";
 export { type BookConfig, type Platform, type Genre, type BookStatus, type FanficMode, BookConfigSchema, PlatformSchema, GenreSchema, BookStatusSchema, FanficModeSchema } from "./models/book.js";
 export { type ChapterMeta, ChapterMetaSchema } from "./models/chapter.js";
 export { type Observation, ObservationSchema } from "./models/observation.js";

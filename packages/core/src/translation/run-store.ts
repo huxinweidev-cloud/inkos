@@ -15,6 +15,7 @@ import {
 import { commitAtomicFileSet } from "../utils/atomic-file-set.js";
 import { workDirectory } from "../harness/work-store.js";
 import { safeChildPath } from "../utils/path-safety.js";
+import { hostedReadablePath } from "../utils/hosted-path-safety.js";
 
 export function translationProjectDir(projectRoot: string, projectId: string): string {
   return join(workDirectory(projectRoot, projectId), "source");
@@ -44,7 +45,7 @@ export async function loadTranslationChapter(
   projectRoot: string,
   chapterPath: string,
 ): Promise<TranslationChapterFile> {
-  return TranslationChapterFileSchema.parse(JSON.parse(await readFile(safeChildPath(projectRoot, chapterPath), "utf-8")));
+  return TranslationChapterFileSchema.parse(JSON.parse(await readFile(await hostedReadablePath(projectRoot, safeChildPath(projectRoot, chapterPath)), "utf-8")));
 }
 
 export async function saveTranslationChapter(

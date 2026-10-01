@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, relative } from "node:path";
 import { extractText, getDocumentProxy } from "unpdf";
 import { safeChildPath } from "../utils/path-safety.js";
+import { hostedReadablePath } from "../utils/hosted-path-safety.js";
 import { toPosixPath } from "../utils/posix-path.js";
 import { extractEpub } from "./epub.js";
 import { normalizeTranslationText, splitTranslationChapters, type TranslationTextChapter } from "./text.js";
@@ -29,7 +30,7 @@ export async function extractTranslationSource(
     return { title: input.title?.trim() || "Translation", kind: "markdown", sourcePath: "inline", charCount: text.length, chapters: splitTranslationChapters(text) };
   }
   if (!input.filePath) throw Object.assign(new Error("Provide sourceText or filePath"), { code: "TRANSLATION_SOURCE_REQUIRED" });
-  const safePath = safeChildPath(projectRoot, input.filePath);
+  const safePath = await hostedReadablePath(projectRoot, safeChildPath(projectRoot, input.filePath));
   const buffer = await readFile(safePath);
   if (buffer.byteLength > MAX_INPUT_BYTES) {
     throw new Error(`Translation input is too large (${buffer.byteLength} bytes).`);

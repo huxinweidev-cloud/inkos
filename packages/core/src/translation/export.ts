@@ -5,6 +5,7 @@ import { EPub } from "epub-gen-memory";
 import { loadTranslationChapter, loadTranslationManifest, translationProjectDir } from "./run-store.js";
 import type { TranslationExportFormat, TranslationExportResult } from "./types.js";
 import { syncWorkSourceArtifacts } from "../harness/source-sync.js";
+import { hostedExportPath } from "../utils/hosted-path-safety.js";
 
 export async function writeTranslationExport(
   projectRoot: string,
@@ -16,7 +17,8 @@ export async function writeTranslationExport(
 ): Promise<TranslationExportResult> {
   const format = options.format ?? "md";
   const manifest = await loadTranslationManifest(projectRoot, projectId);
-  const outputPath = options.outputPath ?? join(translationProjectDir(projectRoot, projectId), "exports", `${safeFilename(manifest.title)}.${format}`);
+  const exportRoot = join(translationProjectDir(projectRoot, projectId), "exports");
+  const outputPath = await hostedExportPath(projectRoot, exportRoot, options.outputPath ?? join(exportRoot, `${safeFilename(manifest.title)}.${format}`));
   await mkdir(dirname(outputPath), { recursive: true });
 
   if (format === "epub") {

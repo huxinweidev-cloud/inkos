@@ -9,6 +9,7 @@ import { StateManager } from "../state/manager.js";
 import { deleteLatestChapter } from "../state/chapter-delete.js";
 import { assertSafeBookId, deriveBookIdFromTitle } from "../utils/book-id.js";
 import { safeChildPath } from "../utils/path-safety.js";
+import { hostedReadablePath } from "../utils/hosted-path-safety.js";
 import { readArtifactRevision } from "../harness/artifact-reader.js";
 import { currentExecutionAuthorRequest } from "../harness/execution-evidence.js";
 import { createPlayPresentation } from "../play/play-presentation.js";
@@ -3096,9 +3097,9 @@ export function createReadTool(
           nextRead: endLine < lines.length ? { artifactId: artifact.id, workId, revisionId: revision.id, startLine: endLine + 1, lineCount: params.lineCount ?? 200 } : null,
         });
       }
-      const filePath = resolveReadPath(readRoot, params.path!, options);
       let content: string;
       try {
+        const filePath = await hostedReadablePath(projectRoot, resolveReadPath(readRoot, params.path!, options));
         content = await readFile(filePath, "utf-8");
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -3218,7 +3219,7 @@ export function createGrepTool(projectRoot: string): AgentTool<typeof GrepParams
       params: Static<typeof GrepParams>,
     ): Promise<AgentToolResult<undefined>> {
       try {
-        const bookDir = safeBooksPath(worksRoot, join(params.bookId, "source"));
+        const bookDir = await hostedReadablePath(projectRoot, safeBooksPath(worksRoot, join(params.bookId, "source")));
         const regex = new RegExp(params.pattern, "gi");
         const results: string[] = [];
 
@@ -3230,7 +3231,7 @@ export function createGrepTool(projectRoot: string): AgentTool<typeof GrepParams
             return; // directory doesn't exist
           }
           for (const entry of entries) {
-            const fullPath = join(dir, entry);
+            const fullPath = await hostedReadablePath(projectRoot, join(dir, entry));
             const entryStat = await stat(fullPath);
             if (entryStat.isDirectory()) {
               await searchDir(fullPath, `${prefix}${entry}/`);
@@ -3290,14 +3291,14 @@ export function createLsTool(projectRoot: string): AgentTool<typeof LsParams> {
       try {
         const base = safeBooksPath(worksRoot, join(params.bookId, "source"));
         const subdir=toPosixPath(params.subdir??'').replace(/^source(?:\/|$)/u,'');
-        const target = subdir ? safeBooksPath(base, subdir) : base;
+        const target = await hostedReadablePath(projectRoot, subdir ? safeBooksPath(base, subdir) : base);
 
         const entries = await readdir(target);
         const details: string[] = [];
 
         for (const entry of entries) {
-          const fullPath = join(target, entry);
           try {
+            const fullPath = await hostedReadablePath(projectRoot, join(target, entry));
             const entryStat = await stat(fullPath);
             const suffix = entryStat.isDirectory() ? "/" : ` (${entryStat.size} bytes)`;
             details.push(`${toPosixPath(join("works", params.bookId, "source", subdir, entry))}${suffix}`);

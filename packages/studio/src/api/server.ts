@@ -139,6 +139,7 @@ import {
   storyGraphPath,
   workDirectory,
   safeChildPath,
+  hostedReadablePath,
   reviewStoryGraph,
   exportInk,
   buildPlayableHtml,
@@ -2471,8 +2472,25 @@ async function probeServiceCapabilities(args: {
 
 // --- Server factory ---
 
-export function createStudioServer(initialConfig: ProjectConfig, root: string, overrides: { readonly nodeImageGenerator?: NodeImageDeps; readonly hostname?: string; readonly allowedOrigins?: readonly string[] } = {}) {
+export interface StudioServerOverrides {
+  readonly nodeImageGenerator?: NodeImageDeps;
+  readonly hostname?: string;
+  readonly allowedOrigins?: readonly string[];
+  readonly authorize?: (request: Request) => boolean | Promise<boolean>;
+}
+
+export function createStudioServer(initialConfig: ProjectConfig, root: string, overrides: StudioServerOverrides = {}) {
   const app = new Hono();
+  // First middleware: includes preflights, unknown and later static routes.
+  // Callback exceptions fail closed without disclosing private credentials.
+  app.use("*", async (c, next) => {
+    if (overrides.authorize) {
+      let admitted = false;
+      try { admitted = await overrides.authorize(c.req.raw) === true; } catch { /* deny */ }
+      if (!admitted) return c.json({ error: { code: "STUDIO_UNAUTHORIZED", message: "Unauthorized" } }, 401);
+    }
+    await next();
+  });
   const state = new StateManager(root);
   const recoveryStore = new CreativeEpisodeStore(join(root, ".inkos", "harness.sqlite"));
   try {
@@ -2796,7 +2814,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const artifact = work.artifacts.find((candidate) => candidate.id === c.req.param("artifactId"));
       const revision = artifact?.revisions.find((candidate) => candidate.id === c.req.param("revisionId"));
       if (!artifact || !revision) return c.json({ error: "Artifact revision not found" }, 404);
-      const bytes = await readFile(safeChildPath(workDirectory(root, id), revision.snapshotPath ?? revision.path));
+      const bytes = await readFile(await hostedReadablePath(root, safeChildPath(workDirectory(root, id), revision.snapshotPath ?? revision.path)));
       if (`sha256:${createHash("sha256").update(bytes).digest("hex")}` !== revision.checksum) throw new ApiError(409, "ARTIFACT_SNAPSHOT_UNAVAILABLE", "Revision content does not match its recorded checksum");
       const textLike = revision.contentType.startsWith("text/")
         || revision.contentType === "application/json";
@@ -3016,7 +3034,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const paddedNum = String(num).padStart(4, "0");
       const match = files.find((f) => f.startsWith(paddedNum) && f.endsWith(".md"));
       if (!match) return c.json({ error: "Chapter not found" }, 404);
-      const content = await readFile(join(chaptersDir, match), "utf-8");
+      const content = await readFile(await hostedReadablePath(root, join(chaptersDir, match)), "utf-8");
       return c.json({ chapterNumber: num, filename: match, content });
     } catch {
       return c.json({ error: "Chapter not found" }, 404);
@@ -3294,7 +3312,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
 
     try {
-      const content = await readFile(resolved, "utf-8");
+      const content = await readFile(await hostedReadablePath(root, resolved), "utf-8");
       const runtimeDiagnostic = RUNTIME_DIAGNOSTIC_FILE_RE.test(file);
       return c.json({
         file,
@@ -4042,7 +4060,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const file = resolveProjectImageFile(root, c.req.param("file"));
 
     try {
-      const content = await readFile(file.resolved);
+      const content = await readFile(await hostedReadablePath(root, file.resolved));
       return new Response(content, {
         headers: {
           "Content-Type": file.contentType,
@@ -4058,7 +4076,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const file = resolveProjectTextArtifactFile(root, c.req.param("file"));
 
     try {
-      const content = await readFile(file.resolved, "utf-8");
+      const content = await readFile(await hostedReadablePath(root, file.resolved), "utf-8");
       return c.json({
         path: file.relPath,
         content,
@@ -4174,7 +4192,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
     async function describe(relPath: string): Promise<{ readonly name: string; readonly size: number; readonly preview: string; readonly readonly?: true; readonly readonlyReason?: string } | null> {
       try {
-        const content = await readFile(join(storyDir, relPath), "utf-8");
+        const content = await readFile(await hostedReadablePath(root, join(storyDir, relPath)), "utf-8");
         const isRuntimeDiagnostic = RUNTIME_DIAGNOSTIC_FILE_RE.test(relPath);
         const entry = isRuntimeDiagnostic
           ? { name: relPath, size: content.length, preview: content.slice(0, 200), readonly: true as const, readonlyReason: "runtime-diagnostic" }
@@ -6046,7 +6064,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         title: body.filename?.replace(/\.[^.]+$/u, ""),
         purpose: "reference",
       });
-      const sourceText = await readFile(join(root, material.markdownPath), "utf-8");
+      const sourceText = await readFile(await hostedReadablePath(root, join(root, material.markdownPath)), "utf-8");
       const pipeline = new PipelineRunner(await buildPipelineConfig());
       const skills = await resolveStudioProfileSkills(root, "longform-novel", {
         extraSkillIds: ["inkos-story-import", "inkos-fanfic-writing"],
@@ -6133,7 +6151,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const id = c.req.param("id");
     const bookDir = state.bookDir(id);
     try {
-      const content = await readFile(join(bookDir, "story", "fanfic_canon.md"), "utf-8");
+      const content = await readFile(await hostedReadablePath(root, join(bookDir, "story", "fanfic_canon.md")), "utf-8");
       return c.json({ bookId: id, content });
     } catch {
       return c.json({ bookId: id, content: null });
@@ -6529,7 +6547,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
     const graphPath = storyGraphPath(root, id);
     try {
-      const raw = await readFile(graphPath, "utf-8");
+      const raw = await readFile(await hostedReadablePath(root, graphPath), "utf-8");
       return c.json(JSON.parse(raw));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -6608,18 +6626,17 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     });
   });
 
-  app.get("/api/v1/projects/:id/export/html", async (c) => {
-    const id = c.req.param("id");
-    if (!isSafeBookId(id)) return c.json({ error: { code: "INVALID_ID", message: `invalid project id: ${id}` } }, 400);
+  async function renderProjectHtml(id: string): Promise<Response> {
+    if (!isSafeBookId(id)) throw new ApiError(400, "INVALID_ID", "Invalid project id");
     const graph = await loadStoryGraph(root, id);
-    if (!graph) return c.json({ error: { code: "NOT_FOUND", message: `story graph not found for ${id}` } }, 404);
+    if (!graph) throw new ApiError(404, "NOT_FOUND", "Story graph not found");
     const assetDataUris: Record<string, string> = {};
     for (const node of graph.nodes) {
       const ref = node.imageSlot?.assetRef;
       if (!ref || assetDataUris[ref]) continue;
       try {
         const file = resolveProjectImageFile(root, ref);
-        const buf = await readFile(file.resolved);
+        const buf = await readFile(await hostedReadablePath(root, file.resolved));
         assetDataUris[ref] = `data:${file.contentType};base64,${buf.toString("base64")}`;
       } catch (err) {
         console.warn(`[studio] export/html: skipping assetRef "${ref}" —`, err);
@@ -6631,12 +6648,16 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         "Content-Disposition": attachmentDisposition(`${id}.html`),
       },
     });
-  });
+  }
 
-  app.get("/api/v1/projects/:id/preview/html",async(c)=>{
-    const response=await app.request(`/api/v1/projects/${encodeURIComponent(c.req.param('id'))}/export/html`);
-    const headers=new Headers(response.headers);headers.delete('Content-Disposition');
-    return new Response(response.body,{status:response.status,headers});
+  app.get("/api/v1/projects/:id/export/html", c => renderProjectHtml(c.req.param("id")));
+  app.get("/api/v1/projects/:id/preview/html", async c => {
+    const response = await renderProjectHtml(c.req.param("id"));
+    const headers = new Headers(response.headers);
+    headers.delete("Content-Disposition");
+    // Inline script may run, but never with Studio's origin privilege.
+    headers.set("Content-Security-Policy", "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'");
+    return new Response(response.body, { status: response.status, headers });
   });
 
   app.post("/api/v1/projects/:id/nodes/:nodeId/image", async (c) => {
@@ -6664,12 +6685,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 export async function startStudioServer(
   root: string,
   port = 4567,
-  options?: { readonly staticDir?: string; readonly hostname?: string; readonly allowedOrigins?: readonly string[] },
+  options?: StudioServerOverrides & { readonly staticDir?: string },
 ): Promise<void> {
   await recoverAtomicFileSets(root, true);
   const config = await loadProjectConfig(root, { consumer: "studio", requireApiKey: false });
 
-  const app = createStudioServer(config, root, { hostname: options?.hostname, allowedOrigins: options?.allowedOrigins });
+  const app = createStudioServer(config, root, options);
 
   // Serve frontend static files — single process for API + frontend
   if (options?.staticDir) {

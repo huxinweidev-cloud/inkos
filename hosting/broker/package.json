@@ -1,0 +1,12 @@
+{
+  "name": "inkos-integration-broker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test --test-timeout=12000 test/*.test.mjs",
+    "check": "node --check src/broker.mjs && node --check src/config.mjs && node --check src/main.mjs"
+  }
+}

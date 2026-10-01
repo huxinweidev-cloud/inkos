@@ -4,6 +4,7 @@ import { splitChapters, type SplitChapter } from "../utils/chapter-splitter.js";
 import {loadWorkManifest} from '../harness/work-store.js';
 import {readArtifactRevision} from '../harness/artifact-reader.js';
 import {WorkResourceIdSchema,type WorkLineage} from '../harness/contracts.js';
+import {hostedReadablePath} from '../utils/hosted-path-safety.js';
 
 const CHAPTER_FILENAME_COLLATOR = new Intl.Collator("en", {
   numeric: true,
@@ -31,7 +32,9 @@ export function compareChapterSourceNames(left: string, right: string): number {
 export async function loadChaptersFromPath(
   sourcePath: string,
   splitPattern?: string,
+  projectRoot?: string,
 ): Promise<ReadonlyArray<SplitChapter>> {
+  if (projectRoot) sourcePath = await hostedReadablePath(projectRoot, sourcePath);
   const sourceStat = await stat(sourcePath);
 
   if (sourceStat.isDirectory()) {
@@ -46,7 +49,8 @@ export async function loadChaptersFromPath(
 
     return Promise.all(
       textFiles.map(async (f) => {
-        const content = await readFile(join(sourcePath, f), "utf-8");
+        const path = projectRoot ? await hostedReadablePath(projectRoot, join(sourcePath, f)) : join(sourcePath, f);
+        const content = await readFile(path, "utf-8");
         const title = f.replace(/\.(md|txt)$/, "").replace(/^\d+[_\-\s]*/, "");
         return { title, content };
       }),
@@ -59,6 +63,7 @@ export async function loadChaptersFromPath(
 
 /** Registered sources keep their exact revision identity across import/resume. */
 export async function loadChapterSource(projectRoot:string,sourcePath:string,splitPattern?:string,previousSources:readonly WorkLineage[]=[]):Promise<{chapters:ReadonlyArray<SplitChapter>;lineage:WorkLineage[]}>{
+  sourcePath=await hostedReadablePath(projectRoot,sourcePath);
   const parts=relative(projectRoot,sourcePath).split(sep);
   if(parts[0]==='works'&&WorkResourceIdSchema.safeParse(parts[1]).success){
     let work;
@@ -69,7 +74,7 @@ export async function loadChapterSource(projectRoot:string,sourcePath:string,spl
       return loadChapterArtifactSource(projectRoot,{workId:work.id,artifactId:artifact.id},splitPattern,previousSources);
     }
   }
-  return{chapters:await loadChaptersFromPath(sourcePath,splitPattern),lineage:[]};
+  return{chapters:await loadChaptersFromPath(sourcePath,splitPattern,projectRoot),lineage:[]};
 }
 
 export async function loadChapterArtifactSource(projectRoot:string,reference:{workId:string;artifactId:string;revisionId?:string},splitPattern?:string,previousSources:readonly WorkLineage[]=[]):Promise<{chapters:ReadonlyArray<SplitChapter>;lineage:WorkLineage[]}>{

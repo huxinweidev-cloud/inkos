@@ -3,6 +3,7 @@ import { basename, extname, join, relative } from "node:path";
 import { extractText, getDocumentProxy } from "unpdf";
 import { z } from "zod";
 import { safeChildPath } from "../utils/path-safety.js";
+import { hostedReadablePath } from "../utils/hosted-path-safety.js";
 import { toPosixPath } from "../utils/posix-path.js";
 import { commitAtomicFileSet } from "../utils/atomic-file-set.js";
 
@@ -106,7 +107,7 @@ async function readMaterialSource(
     return readUrlMaterial(input.url, deps.fetch ?? fetch);
   }
   if (!input.filePath) throw new Error("ingest_material.filePath is required for file sources.");
-  const safePath = safeChildPath(projectRoot, input.filePath);
+  const safePath = await hostedReadablePath(projectRoot, safeChildPath(projectRoot, input.filePath));
   const buffer = await readFile(safePath);
   if (buffer.byteLength > MAX_SOURCE_BYTES) {
     throw new Error(`Material file is too large (${buffer.byteLength} bytes).`);

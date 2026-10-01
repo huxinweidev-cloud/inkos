@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "integration_state": "development",
+  "required_workflow": "fork-maintenance.yml",
+  "production_integration_accepted": false,
+  "accepted_pair": null
+}
