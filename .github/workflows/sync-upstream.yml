@@ -12,8 +12,6 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    env:
-      TMPDIR: ${{ runner.temp }}
     steps:
       - name: Require workflow-capable sync credential
         env:
@@ -31,6 +29,8 @@ jobs:
           git remote add upstream https://github.com/Narcooo/inkos.git
           git fetch upstream master
           git merge upstream/master --no-edit
+      - name: Configure portable test scratch
+        run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
