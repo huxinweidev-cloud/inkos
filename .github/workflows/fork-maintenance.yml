@@ -12,6 +12,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      TMPDIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,8 +27,9 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
           pnpm typecheck
-      - name: Test hosted changes when present
+      - name: Test baseline and hosted contracts
         run: |
+          pnpm --filter @actalk/inkos-core test src/__tests__/chapter-import-source.test.ts src/__tests__/translation-runner.test.ts
           if test -f packages/core/src/__tests__/hosted-path-safety.test.ts; then
             pnpm --filter @actalk/inkos-core test src/__tests__/hosted-path-safety.test.ts src/__tests__/chapter-import-source.test.ts src/__tests__/translation-runner.test.ts
           fi
