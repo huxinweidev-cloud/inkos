@@ -44,12 +44,12 @@ InkOS 是一个面向故事创作与多语言翻译的 AI Agent 系统：长篇�
 **InkOS Studio 已支持 Moonshot（Kimi）。前往 Kimi 开放平台（[中文站](https://platform.kimi.com/?aff=inkos)｜[Global](https://platform.kimi.ai/?aff=inkos)）获取 API Key，即可开始创作。**
 
 <p align="center">
-  <a href="https://kkaiapi.com/models?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-screenshot"><img src="assets/kkaiapi-models-promotion.jpg" width="840" alt="kkaiapi 模型与价格"></a>
+  <a href="https://kkaiapi.com/?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-screenshot"><img src="assets/kkaiapi-home-promotion.jpg" width="840" alt="kkaiapi 首页"></a>
 </p>
 
-**kkaiapi｜一个 Key，调用 Claude、GPT、Gemini、DeepSeek 等主流模型。**<br>
-按量付费，统一余额，支持 InkOS 写作、审稿与封面生成。<br>
-[查看模型与价格 →](https://kkaiapi.com/models?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-models) · [InkOS 接入指南 →](https://kkaiapi.com/docs/inkos?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-guide)
+**[kkaiapi](https://kkaiapi.com/?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-brand)｜一个 Key 调模型，一个 MCP 接数据与工具。**<br>
+支持 Claude、GPT、Gemini、DeepSeek 等主流模型，按量付费、共用余额，用于 InkOS 写作、审稿与封面生成。<br>
+[查看模型与价格 →](https://kkaiapi.com/models?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-models) · [InkOS 接入指南 →](https://kkaiapi.com/docs/inkos?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-guide) · [MCP 接入 →](https://kkaiapi.com/api/information/skill?utm_source=inkos&utm_medium=repo&utm_campaign=kk-models-readme&utm_content=zh-mcp)
 
 > 💡 **写小说，先给 Agent 接一层专业数据** —— 写小说不只缺模型，更缺素材。推荐搭配 [**火花数据API（huohuaapi）**](https://huohuaapi.com/)：按调用计费的小说 / 网文创作数据，让 Agent 动笔前先查小说正文、章节结构、人物设定、文风和创作方法等带来源素材，而不是只靠 Prompt 硬凑一份“剧情提纲”。
 
